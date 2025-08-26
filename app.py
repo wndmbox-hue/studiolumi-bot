@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from datetime import date, timedelta
 
 # --- Пути и папки ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,9 @@ WORK_END   = 21 * 60  # 21:00
 SLOT_DUR   = 60
 BUFFER     = 15       # мин между бронированиями
 BASE_URL   = os.environ.get("BASE_URL", "http://localhost:8000")
+
+RU_WD = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"]
+RU_MM = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"]
 
 app = FastAPI(title="Studio Lumi API (single-file)")
 app.add_middleware(
@@ -137,10 +141,33 @@ def make_ics(booking_id: str, hall_id: str, date: str, start_min: int, end_min: 
         f.write(content)
     return rel
 
+def pretty_label(d: date) -> str:
+    return f"{RU_WD[d.isoweekday()-1]}, {d.day} {RU_MM[d.month-1]}"
 # --- Инициализируем БД при импорте ---
 init_db()
 
 # --- Эндпоинты ---
+@app.get("/dates")
+def dates(n: int = 7, start: str = "today"):
+    """
+    Возвращает скользящий список дат.
+    - n: сколько дней (по умолчанию 7)
+    - start: today | tomorrow | YYYY-MM-DD
+    """
+    if start == "today":
+        d0 = date.today()
+    elif start == "tomorrow":
+        d0 = date.today() + timedelta(days=1)
+    else:
+        y, m, d = map(int, start.split("-"))
+        d0 = date(y, m, d)
+
+    out = []
+    for i in range(n):
+        d = d0 + timedelta(days=i)
+        out.append({"iso": d.isoformat(), "label": pretty_label(d)})
+    return {"dates": out}
+
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -241,3 +268,4 @@ def ics_files(fname: str):
     return FileResponse(path, media_type="text/calendar")
 
 # Запуск: uvicorn app:app --host 0.0.0.0 --port 8000
+
