@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from datetime import date, timedelta
+from fastapi.responses import PlainTextResponse
 
 # --- Пути и папки ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -172,6 +173,27 @@ def dates(n: int = 7, start: str = "today"):
 def health():
     return {"ok": True}
 
+@app.get("/test-json")
+def test_json():
+    # статичный ответ, чтобы проверить маппинг/вывод в SendPulse
+    return {"booking_id": "TEST-123", "price": 12345, "ics_url": "https://example.com/test.ics"}
+
+@app.post("/debug-book")
+def debug_book(payload: dict):
+    # вернёт, что именно отправляет SendPulse (для диагностики)
+    return {"received": payload}
+
+@app.post("/book_text")
+def book_text(payload: dict):
+    # используем ту же логику бронирования и отдаём ПЛОСКИЙ ТЕКСТ (без JSON)
+    result = book(payload)  # вызываем наш существующий эндпоинт-функцию
+    return PlainTextResponse(
+        f"Бронь №{result['booking_id']}\n"
+        f"Дата: {payload.get('date')} {payload.get('slot')}\n"
+        f"Цена: {result['price']} ₸\n"
+        f"Календарь: {result['ics_url']}"
+    )
+
 @app.get("/slots")
 def slots(hall_id: str, date: str):
     if not hall_id or not date:
@@ -268,4 +290,5 @@ def ics_files(fname: str):
     return FileResponse(path, media_type="text/calendar")
 
 # Запуск: uvicorn app:app --host 0.0.0.0 --port 8000
+
 
