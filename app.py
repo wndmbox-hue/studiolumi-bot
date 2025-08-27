@@ -148,6 +148,29 @@ def pretty_label(d: date) -> str:
 init_db()
 
 # --- Эндпоинты ---
+@app.post("/book_sp")
+def book_sp(payload: dict):
+    """
+    Специально для SendPulse: создаёт бронь и возвращает удобный JSON.
+    """
+    # вызываем существующую логику брони (эндпоинт /book использует эту же функцию под капотом)
+    result = book(payload)   # вернёт dict: booking_id, price, ics_url, status
+
+    text = (
+        f"✅ Бронь №{result['booking_id']}\n"
+        f"Зал: {payload.get('hall_id')}\n"
+        f"Дата: {payload.get('date')}  Время: {payload.get('slot')}\n"
+        f"Цена: {result['price']} ₸\n"
+        f"Календарь: {result['ics_url']}"
+    )
+
+    return {
+        "message": text,
+        "booking_id": result["booking_id"],
+        "price": result["price"],
+        "ics_url": result["ics_url"]
+    }
+
 @app.get("/dates")
 def dates(n: int = 7, start: str = "today"):
     """
@@ -290,5 +313,6 @@ def ics_files(fname: str):
     return FileResponse(path, media_type="text/calendar")
 
 # Запуск: uvicorn app:app --host 0.0.0.0 --port 8000
+
 
 
